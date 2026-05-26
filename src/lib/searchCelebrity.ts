@@ -100,11 +100,11 @@ function fieldsOf(blurb?: string): Set<string> {
 
 /**
  * Suggest a handful of figures that "relate like" the one just added. Primary
- * source is the live web (Wikipedia `morelike:` relevance — genuinely the same
- * scene: a rapper gets other rappers, a physicist other physicists). If the
- * network is unavailable or thin, it backfills from the curated local dataset
- * by shared field of renown + era. Never throws; `exclude` names (typically
- * whoever is already on the timeline) are skipped.
+ * source is the live web (`fetchRelated`: Wikidata same-occupation peers from
+ * the same era, ranked by fame, with a `morelike:` text-similarity fallback).
+ * If the network is unavailable or thin, it backfills from the curated local
+ * dataset by shared field of renown + era. Never throws; `exclude` names
+ * (typically whoever is already on the timeline) are skipped.
  */
 export async function suggestSimilar(
   target: CelebrityResult,
@@ -114,7 +114,9 @@ export async function suggestSimilar(
 ): Promise<CelebrityResult[]> {
   const skip = new Set([target.name, ...exclude].map((n) => n.toLowerCase()));
 
-  const web = await fetchRelated(target.name, signal).catch(() => []);
+  const web = await fetchRelated(target.name, target.birthYear, signal).catch(
+    () => [],
+  );
   const out: CelebrityResult[] = [];
   for (const r of web) {
     const key = r.name.toLowerCase();

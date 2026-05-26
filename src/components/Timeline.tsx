@@ -11,6 +11,7 @@ interface Props {
   view: TimelineView;
   selectedIds: string[];
   onSelect: (id: string) => void;
+  onExpand: (id: string) => void;
   onRemove: (id: string) => void;
 }
 
@@ -20,7 +21,7 @@ const GEOMETRY = {
   vertical: { baseOffset: 10, laneStep: 50 },
 };
 
-export function Timeline({ people, view, selectedIds, onSelect, onRemove }: Props) {
+export function Timeline({ people, view, selectedIds, onSelect, onExpand, onRemove }: Props) {
   const horizontal = view.orientation === "horizontal";
   const geo = GEOMETRY[view.orientation];
 
@@ -111,6 +112,7 @@ export function Timeline({ people, view, selectedIds, onSelect, onRemove }: Prop
               selected={isSelected}
               dimmed={dimmed}
               onSelect={() => onSelect(person.id)}
+              onExpand={() => onExpand(person.id)}
               onRemove={() => onRemove(person.id)}
             />
           </PersonNode>

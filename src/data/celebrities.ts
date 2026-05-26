@@ -160,35 +160,44 @@ export const CELEBRITY_DB: CelebrityResult[] = [
       "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Reuni%C3%A3o_com_o_ator_norte-americano_Keanu_Reeves_%2846806576944%29_%28cropped%29.jpg/240px-Reuni%C3%A3o_com_o_ator_norte-americano_Keanu_Reeves_%2846806576944%29_%28cropped%29.jpg",
   },
   {
-    name: "Martin Luther King Jr.",
+    name: "Audrey Hepburn",
     birthYear: 1929,
+    deathYear: 1993,
+    blurb: "Actress",
+    imageUrl:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/AudreyKHepburn.jpg/240px-AudreyKHepburn.jpg",
+  },
+  {
+    name: "Yuri Gagarin",
+    birthYear: 1934,
     deathYear: 1968,
-    blurb: "Civil rights leader",
+    blurb: "Cosmonaut",
     imageUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Martin_Luther_King%2C_Jr._and_Lyndon_Johnson_%28cropped%29.jpg/240px-Martin_Luther_King%2C_Jr._and_Lyndon_Johnson_%28cropped%29.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d8/Yuri_Gagarin_with_awards_%28cropped%29_2.jpg/240px-Yuri_Gagarin_with_awards_%28cropped%29_2.jpg",
   },
   {
-    name: "Stephen Hawking",
-    birthYear: 1942,
-    deathYear: 2018,
-    blurb: "Theoretical physicist",
+    name: "Pelé",
+    birthYear: 1940,
+    deathYear: 2022,
+    blurb: "Footballer",
     imageUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/e/eb/Stephen_Hawking.StarChild.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Pele_con_brasil_%28cropped%29.jpg/240px-Pele_con_brasil_%28cropped%29.jpg",
   },
   {
-    name: "Freddie Mercury",
-    birthYear: 1946,
-    deathYear: 1991,
+    name: "Diana, Princess of Wales",
+    birthYear: 1961,
+    deathYear: 1997,
+    blurb: "Princess of Wales",
+    imageUrl:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Diana%2C_Princess_of_Wales_1997_%282%29.jpg/240px-Diana%2C_Princess_of_Wales_1997_%282%29.jpg",
+  },
+  {
+    name: "Michael Jackson",
+    birthYear: 1958,
+    deathYear: 2009,
     blurb: "Singer",
     imageUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/Freddie_Mercury_performing_in_New_Haven%2C_CT%2C_November_1977.jpg/240px-Freddie_Mercury_performing_in_New_Haven%2C_CT%2C_November_1977.jpg",
-  },
-  {
-    name: "Michael Jordan",
-    birthYear: 1963,
-    blurb: "Basketball player",
-    imageUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Michael_Jordan_in_2014.jpg/240px-Michael_Jordan_in_2014.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/Michael_Jackson_1983_%283x4_cropped%29_%28contrast%29.jpg/240px-Michael_Jackson_1983_%283x4_cropped%29_%28contrast%29.jpg",
   },
   {
     name: "Serena Williams",

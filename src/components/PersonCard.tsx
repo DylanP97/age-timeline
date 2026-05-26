@@ -9,6 +9,7 @@ interface Props {
   selected: boolean;
   dimmed: boolean;
   onSelect: () => void;
+  onExpand: () => void;
   onRemove: () => void;
 }
 
@@ -18,6 +19,7 @@ export function PersonCard({
   selected,
   dimmed,
   onSelect,
+  onExpand,
   onRemove,
 }: Props) {
   const age = currentAge(person);
@@ -101,6 +103,22 @@ export function PersonCard({
           )}
         </div>
       </div>
+
+      {/* Expand control — open the full readout. Hover-reveal / always on touch. */}
+      <button
+        aria-label={`Expand ${person.name}`}
+        title="View larger"
+        onClick={(e) => {
+          e.stopPropagation();
+          onExpand();
+        }}
+        className="absolute -left-2 -top-2 flex h-6 w-6 items-center justify-center rounded-sm border border-frost/15 bg-ink-800/95 text-frost-dim opacity-0 backdrop-blur-sm transition hover:border-gold/50 hover:text-gold group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+      >
+        <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+          <circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M9 9l3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        </svg>
+      </button>
 
       {/* Remove control — hover-reveal on mouse, always shown on touch */}
       <button

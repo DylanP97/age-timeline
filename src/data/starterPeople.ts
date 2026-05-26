@@ -8,10 +8,11 @@ const STARTER_NAMES = [
   "Marie Curie", // b. 1867 — Belle Époque
   "Frida Kahlo", // b. 1907 — early 20th century
   "Nelson Mandela", // b. 1918 — Greatest Generation
-  "Martin Luther King Jr.", // b. 1929 — Silent Generation
-  "Stephen Hawking", // b. 1942 — postwar
-  "Freddie Mercury", // b. 1946 — Boomer
-  "Michael Jordan", // b. 1963 — Gen X
+  "Audrey Hepburn", // b. 1929 — Belgian-British screen
+  "Yuri Gagarin", // b. 1934 — Soviet space age
+  "Pelé", // b. 1940 — Brazilian sport
+  "Michael Jackson", // b. 1958 — pop music
+  "Diana, Princess of Wales", // b. 1961 — British public life
   "Serena Williams", // b. 1981 — Millennial
   "Greta Thunberg", // b. 2003 — Gen Z
 ];

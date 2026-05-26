@@ -10,6 +10,7 @@ import { Controls } from "./components/Controls";
 import { ComparisonOverlay } from "./components/ComparisonOverlay";
 import { AddPersonModal } from "./components/AddPersonModal";
 import { CelebritySearchModal } from "./components/CelebritySearchModal";
+import { PersonDetail } from "./components/PersonDetail";
 
 type Dialog = "none" | "person" | "celebrity";
 
@@ -23,6 +24,7 @@ export default function App() {
   const view = useTimelineView(isMobile ? "vertical" : "horizontal");
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog>("none");
 
   // Toggle selection, keeping at most two (drop the oldest). "" clears.
@@ -38,6 +40,7 @@ export default function App() {
     (id: string) => {
       removePerson(id);
       setSelectedIds((prev) => prev.filter((p) => p !== id));
+      setExpandedId((prev) => (prev === id ? null : prev));
     },
     [removePerson],
   );
@@ -57,6 +60,10 @@ export default function App() {
   useEffect(() => {
     setSelectedIds((prev) => prev.filter((id) => people.some((p) => p.id === id)));
   }, [people]);
+
+  const expandedPerson = expandedId
+    ? people.find((p) => p.id === expandedId) ?? null
+    : null;
 
   const selectedPeople = selectedIds
     .map((id) => people.find((p) => p.id === id))
@@ -103,6 +110,7 @@ export default function App() {
         view={view}
         selectedIds={selectedIds}
         onSelect={handleSelect}
+        onExpand={setExpandedId}
         onRemove={handleRemove}
       />
 
@@ -155,6 +163,10 @@ export default function App() {
 
       {comparison && (
         <ComparisonOverlay comparison={comparison} onClose={() => setSelectedIds([])} />
+      )}
+
+      {expandedPerson && (
+        <PersonDetail person={expandedPerson} onClose={() => setExpandedId(null)} />
       )}
 
       {dialog === "person" && (

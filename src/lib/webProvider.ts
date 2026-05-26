@@ -15,6 +15,10 @@ import type { CelebrityProvider } from "./searchCelebrity";
  */
 const WIKIPEDIA = "https://en.wikipedia.org/w/api.php";
 const WIKIDATA = "https://www.wikidata.org/w/api.php";
+const WDQS = "https://query.wikidata.org/sparql";
+
+/** How many years either side of the target counts as "the same generation". */
+const ERA_WINDOW = 25;
 
 interface WikiPage {
   index: number;
@@ -33,20 +37,152 @@ export const webProvider: CelebrityProvider = {
 };
 
 /**
- * Genuinely related figures for a known person, via Wikipedia's `morelike:`
- * relevance — it ranks articles by textual similarity to the named page, so a
- * rapper surfaces other rappers, a physicist other physicists, etc. Far better
- * "relatedness" than any small curated heuristic. Best-effort: returns [] on
- * failure. The person themselves is filtered out by the caller.
+ * Genuinely related figures for a known person — the peers you'd actually want
+ * to drop onto an age-comparison timeline next to them.
+ *
+ * Primary signal is Wikidata's *structured* data, not text similarity: people
+ * who share the target's occupation (P106), were born within a generation of
+ * them, ranked by global fame (sitelink count), with portraits (P18). That
+ * encodes the three things that make a great timeline peer — same kind of
+ * person, same era, actually notable — instead of "whoever is co-mentioned in
+ * their article", which is all a `morelike:` text search can offer.
+ *
+ * Falls back to `morelike:` if Wikidata is unavailable or yields nothing (e.g.
+ * the person has no occupation recorded). Best-effort: returns [] on failure;
+ * the person themselves is filtered out here and again by the caller.
  */
 export async function fetchRelated(
   name: string,
+  birthYear: number,
   signal?: AbortSignal,
 ): Promise<CelebrityResult[]> {
   const n = name.trim();
   if (!n) return [];
+
+  try {
+    const peers = await fetchPeersByOccupation(n, birthYear, signal);
+    const usable = peers.filter((r) => r.name.toLowerCase() !== n.toLowerCase());
+    if (usable.length > 0) return usable;
+  } catch {
+    // Wikidata down / slow / query error — fall through to text similarity.
+  }
+
   const results = await searchPeople(`morelike:${n}`, signal, 20);
   return results.filter((r) => r.name.toLowerCase() !== n.toLowerCase());
+}
+
+/**
+ * Resolve a name to its Wikidata id and occupation (P106) q-ids, then ask the
+ * Wikidata Query Service for same-occupation contemporaries ranked by fame.
+ */
+async function fetchPeersByOccupation(
+  name: string,
+  birthYear: number,
+  signal?: AbortSignal,
+): Promise<CelebrityResult[]> {
+  const target = await resolveOccupations(name, signal);
+  if (!target || target.occupations.length === 0) return [];
+
+  const values = target.occupations.map((q) => `wd:${q}`).join(" ");
+  const lo = birthYear - ERA_WINDOW;
+  const hi = birthYear + ERA_WINDOW;
+  // No PREFIX lines needed — WDQS predefines wd:/wdt:/wikibase:/schema:/rdfs:.
+  const query = `SELECT ?person ?personLabel ?desc ?birth ?death ?img ?links WHERE {
+  VALUES ?occ { ${values} }
+  ?person wdt:P106 ?occ ;
+          wdt:P569 ?dob ;
+          wikibase:sitelinks ?links .
+  FILTER(?person != wd:${target.id})
+  FILTER(?links >= 10)
+  BIND(YEAR(?dob) AS ?birth)
+  FILTER(?birth >= ${lo} && ?birth <= ${hi})
+  OPTIONAL { ?person wdt:P570 ?dod . BIND(YEAR(?dod) AS ?death) }
+  OPTIONAL { ?person wdt:P18 ?img }
+  ?person rdfs:label ?personLabel . FILTER(LANG(?personLabel) = "en")
+  OPTIONAL { ?person schema:description ?desc . FILTER(LANG(?desc) = "en") }
+}
+ORDER BY DESC(?links)
+LIMIT 25`;
+
+  const res = await fetch(`${WDQS}?format=json&query=${encodeURIComponent(query)}`, {
+    signal: withTimeout(signal, 9000),
+    headers: { Accept: "application/sparql-results+json" },
+  });
+  if (!res.ok) throw new Error(`wdqs ${res.status}`);
+  const json = await res.json();
+
+  const results: CelebrityResult[] = [];
+  const seen = new Set<string>();
+  for (const b of json.results?.bindings ?? []) {
+    const name = b.personLabel?.value as string | undefined;
+    const birth = Number.parseInt(b.birth?.value, 10);
+    if (!name || Number.isNaN(birth) || seen.has(name)) continue;
+    seen.add(name);
+    const death = Number.parseInt(b.death?.value, 10);
+    results.push({
+      name,
+      birthYear: birth,
+      deathYear: Number.isNaN(death) ? undefined : death,
+      imageUrl: commonsThumb(b.img?.value),
+      blurb: b.desc?.value,
+    });
+  }
+  return results;
+}
+
+/** Resolve a known name → its Wikidata id + occupation (P106) q-ids. */
+async function resolveOccupations(
+  name: string,
+  signal?: AbortSignal,
+): Promise<{ id: string; occupations: string[] } | null> {
+  const searchUrl =
+    `${WIKIPEDIA}?action=query&format=json&origin=*` +
+    `&generator=search&gsrsearch=${encodeURIComponent(name)}&gsrlimit=1` +
+    `&prop=pageprops&ppprop=wikibase_item`;
+  const sres = await fetch(searchUrl, { signal });
+  if (!sres.ok) return null;
+  const sjson = await sres.json();
+  const pages: WikiPage[] = Object.values(sjson.query?.pages ?? {});
+  const id = pages[0]?.pageprops?.wikibase_item;
+  if (!id) return null;
+
+  const entUrl =
+    `${WIKIDATA}?action=wbgetentities&props=claims&format=json&origin=*&ids=${id}`;
+  const eres = await fetch(entUrl, { signal });
+  if (!eres.ok) return null;
+  const ejson = await eres.json();
+  const claims: unknown[] = ejson.entities?.[id]?.claims?.P106 ?? [];
+  const occupations = claims
+    .map((c) => (c as Claim)?.mainsnak?.datavalue?.value?.id)
+    .filter((q): q is string => typeof q === "string")
+    .slice(0, 4); // a few top occupations keeps the query focused and fast
+  return { id, occupations };
+}
+
+interface Claim {
+  mainsnak?: { datavalue?: { value?: { id?: string } } };
+}
+
+/**
+ * P18 hands back a Commons file URL (.../Special:FilePath/Name.jpg); appending
+ * ?width= asks Commons for a sized thumbnail rather than the full-res original.
+ */
+function commonsThumb(url?: string): string | undefined {
+  if (!url) return undefined;
+  return `${url.replace(/^http:/, "https:")}?width=240`;
+}
+
+/**
+ * A signal that aborts when the caller's signal does *or* after `ms` — WDQS can
+ * occasionally hang, and we'd rather fall back to `morelike:` than stall.
+ */
+function withTimeout(signal: AbortSignal | undefined, ms: number): AbortSignal {
+  const ctrl = new AbortController();
+  if (signal?.aborted) ctrl.abort();
+  else signal?.addEventListener("abort", () => ctrl.abort(), { once: true });
+  const t = setTimeout(() => ctrl.abort(), ms);
+  ctrl.signal.addEventListener("abort", () => clearTimeout(t), { once: true });
+  return ctrl.signal;
 }
 
 /**
