@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Dark theme (default) — cyan-phosphor CRT readout on cool black. RGB channel
+     triplets consumed by Tailwind tokens. NOTE: the `--gold` token family is
+     the *signal* color (now ice-cyan); `--cyan` is the warm *cursor* accent.
+     Names kept for token stability across the component tree. */
+  :root,
+  :root[data-theme="dark"] {
+    --ink-900: 5 7 9; /* the screen — cool black */
+    --ink-800: 10 13 17; /* panels / modals */
+    --ink-700: 15 19 24; /* readout plates (used translucent) */
+    --ink-600: 24 30 37; /* hover / selected */
+    --ink-500: 34 43 52; /* graticule fill */
+    --gold: 95 208 232; /* ice-cyan phosphor — the trace (signal) */
+    --gold-soft: 154 230 246;
+    --gold-dim: 58 120 140;
+    --cyan: 255 180 90; /* warm amber — the live cursor (accent) */
+    --cyan-soft: 255 206 142;
+    --cyan-dim: 150 110 60;
+    --frost: 216 226 236; /* cool screen-white text */
+    --frost-dim: 130 146 160;
+    /* atmosphere tints */
+    --atmo-haze: 34 43 52; /* faint cool screen wash */
+    --atmo-glow: 95 208 232; /* phosphor bloom along the trace */
+    --atmo-haze-a: 0.4;
+    --atmo-glow-a: 0.08;
+    --noise-a: 0.4;
+    --grid-a: 0.05; /* graticule line strength */
+    --scan-a: 0.45; /* scanline strength */
+    color-scheme: dark;
+  }
+
+  /* Light theme — a plotter / blueprint printout: teal ink trace on cool paper.
+     Scanlines fade; the graticule becomes printed grid. `--gold` = teal signal,
+     `--cyan` = sepia cursor (mirrors the dark theme's role mapping). */
+  :root[data-theme="light"] {
+    --ink-900: 232 235 234; /* cool paper */
+    --ink-800: 246 249 248; /* modals / elevated panels */
+    --ink-700: 249 251 250; /* plates (used translucent) */
+    --ink-600: 224 229 228; /* hover / selected */
+    --ink-500: 206 213 212; /* graticule fill */
+    --gold: 32 118 132; /* teal ink trace (signal) */
+    --gold-soft: 22 96 108;
+    --gold-dim: 150 184 188;
+    --cyan: 176 110 44; /* sepia ink cursor (accent) */
+    --cyan-soft: 146 88 32;
+    --cyan-dim: 200 168 122;
+    --frost: 30 36 38; /* ink text */
+    --frost-dim: 96 106 108;
+    --atmo-haze: 244 248 248;
+    --atmo-glow: 32 118 132;
+    --atmo-haze-a: 0.5;
+    --atmo-glow-a: 0.05;
+    --noise-a: 0.25;
+    --grid-a: 0.07;
+    --scan-a: 0; /* no scanlines on paper */
+    color-scheme: light;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    background-color: rgb(var(--ink-900));
+    color: rgb(var(--frost));
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* The timeline owns all gestures; prevent the page from rubber-banding. */
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.4s ease, color 0.4s ease;
+  }
+
+  ::selection {
+    background: rgb(var(--gold) / 0.3);
+  }
+
+  /* Honour reduced-motion: kill the CRT flicker. */
+  @media (prefers-reduced-motion: reduce) {
+    [data-flicker] {
+      animation: none !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Slim, dim scrollbar for the celebrity results list */
+  .overflow-y-auto::-webkit-scrollbar {
+    width: 6px;
+  }
+  .overflow-y-auto::-webkit-scrollbar-thumb {
+    background: rgba(205, 214, 228, 0.15);
+    border-radius: 999px;
+  }
+  .overflow-y-auto::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
