@@ -1,6 +1,21 @@
 import type { CelebrityResult } from "../types";
 import { CELEBRITY_DB } from "../data/celebrities";
-import { webProvider, fetchRelated } from "./webProvider";
+import { ERA_FIGURES } from "../data/eraFigures";
+import { webProvider, fetchRelated, fetchBornAround } from "./webProvider";
+
+/**
+ * Combined pool for decade browsing: the search dataset plus the decade-fill
+ * set, de-duplicated by name (the search entry wins, keeping any hand-picked
+ * portrait). Ordered so more prominent figures surface first within a decade.
+ */
+const ERA_POOL: CelebrityResult[] = (() => {
+  const byName = new Map<string, CelebrityResult>();
+  for (const c of [...CELEBRITY_DB, ...ERA_FIGURES]) {
+    const key = c.name.toLowerCase();
+    if (!byName.has(key)) byName.set(key, c);
+  }
+  return [...byName.values()];
+})();
 
 /**
  * A celebrity data provider. The app only ever talks to this interface, so the
@@ -41,15 +56,26 @@ export const compositeProvider: CelebrityProvider = {
     const localResults = local.status === "fulfilled" ? local.value : [];
     const webResults = web.status === "fulfilled" ? web.value : [];
 
-    const seen = new Set<string>();
-    const merged: CelebrityResult[] = [];
+    // Local hits keep their order and priority; a web duplicate of the same
+    // person backfills whatever the curated entry left blank (most often a
+    // portrait — many historical entries ship without a hardcoded thumbnail).
+    const byKey = new Map<string, CelebrityResult>();
+    const order: string[] = [];
     for (const r of [...localResults, ...webResults]) {
       const key = `${r.name.toLowerCase()}|${r.birthYear}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      merged.push(r);
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, { ...r });
+        order.push(key);
+      } else {
+        existing.imageUrl ??= r.imageUrl;
+        existing.birthDate ??= r.birthDate;
+        existing.deathYear ??= r.deathYear;
+        existing.deathDate ??= r.deathDate;
+        existing.blurb ??= r.blurb;
+      }
     }
-    return merged.slice(0, 12);
+    return order.map((k) => byKey.get(k)!).slice(0, 12);
   },
 };
 
@@ -154,6 +180,51 @@ function localSuggest(
     .sort((a, b) => b.score - a.score || a.gap - b.gap)
     .slice(0, limit)
     .map((r) => r.c);
+}
+
+/** The decade a year falls in, e.g. 1987 → 1980. */
+export function decadeOf(year: number): number {
+  return Math.floor(year / 10) * 10;
+}
+
+/**
+ * Propose notable figures *born in the decade* a tapped year falls in — the
+ * "people from around here" prompt when someone clicks an empty stretch of the
+ * timeline. Curated local hits (instant, hand-picked portraits) lead, then live
+ * Wikidata results born in the same decade ranked by fame backfill the rest,
+ * de-duplicated by name. Never throws; `exclude` names (already on the timeline)
+ * are skipped. Returns figures sorted oldest-first so the decade reads in order.
+ */
+export async function suggestByEra(
+  year: number,
+  exclude: Iterable<string> = [],
+  signal?: AbortSignal,
+  limit = 8,
+): Promise<CelebrityResult[]> {
+  const decade = decadeOf(year);
+  const lo = decade;
+  const hi = decade + 9;
+  const skip = new Set([...exclude].map((n) => n.toLowerCase()));
+
+  const local = ERA_POOL.filter(
+    (c) => c.birthYear >= lo && c.birthYear <= hi && !skip.has(c.name.toLowerCase()),
+  );
+  // The curated pool covers most decades richly — serve it instantly with no
+  // network round-trip. Only the sparest decades (very early or the latest)
+  // fall through to a live Wikidata backfill.
+  if (local.length >= limit) return local.slice(0, limit);
+
+  const web = await fetchBornAround(lo, hi, signal).catch(() => []);
+  const out = [...local];
+  const seen = new Set(local.map((c) => c.name.toLowerCase()));
+  for (const r of web) {
+    const key = r.name.toLowerCase();
+    if (seen.has(key) || skip.has(key) || r.birthYear < lo || r.birthYear > hi) continue;
+    seen.add(key);
+    out.push(r);
+    if (out.length >= limit) break;
+  }
+  return out.slice(0, limit);
 }
 
 /**

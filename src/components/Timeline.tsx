@@ -1,8 +1,9 @@
 import { useMemo, useRef } from "react";
 import type { Person } from "../types";
 import type { TimelineView } from "../hooks/useTimelineView";
-import { assignLanes, type Side } from "../lib/layout";
+import { assignLanes, stackColumn, type Placement, type Side } from "../lib/layout";
 import { CURRENT_YEAR, MAX_YEAR, MIN_YEAR, compare } from "../lib/age";
+import { RAIL_X, CARD_X } from "../lib/geometry";
 import { YearGrid } from "./YearGrid";
 import { PersonCard } from "./PersonCard";
 
@@ -10,25 +11,39 @@ interface Props {
   people: Person[];
   view: TimelineView;
   selectedIds: string[];
+  interactionOrder: string[];
   onSelect: (id: string) => void;
   onExpand: (id: string) => void;
   onRemove: (id: string) => void;
+  /** Tap on an empty stretch of the trace — propose figures from that era. */
+  onPickYear: (year: number, point: { x: number; y: number }) => void;
 }
 
-/** Per-orientation geometry for placing cards off the line. */
-const GEOMETRY = {
-  horizontal: { baseOffset: 38, laneStep: 122 },
-  vertical: { baseOffset: 10, laneStep: 50 },
-};
+/** Horizontal (desktop) geometry for placing cards above/below the line. */
+const H_GEO = { baseOffset: 38, laneStep: 122 };
 
-export function Timeline({ people, view, selectedIds, onSelect, onExpand, onRemove }: Props) {
+export function Timeline({
+  people,
+  view,
+  selectedIds,
+  interactionOrder,
+  onSelect,
+  onExpand,
+  onRemove,
+  onPickYear,
+}: Props) {
   const horizontal = view.orientation === "horizontal";
-  const geo = GEOMETRY[view.orientation];
 
-  // Lane assignment is scroll-independent → memoize on people + zoom only.
+  // Placement is scroll-independent → memoize on people + zoom only.
+  // Desktop alternates cards above/below the line (lanes); mobile is a single
+  // column to the right of a left rail (vertical de-overlap push).
   const lanes = useMemo(
-    () => assignLanes(people, view.pxPerYear, view.orientation),
-    [people, view.pxPerYear, view.orientation],
+    () => (horizontal ? assignLanes(people, view.pxPerYear, "horizontal") : null),
+    [horizontal, people, view.pxPerYear],
+  );
+  const stacks = useMemo(
+    () => (horizontal ? null : stackColumn(people, view.pxPerYear)),
+    [horizontal, people, view.pxPerYear],
   );
 
   // Cull to what's on (or near) screen for smooth rendering at any count.
@@ -68,7 +83,18 @@ export function Timeline({ people, view, selectedIds, onSelect, onExpand, onRemo
       onClick={(e) => {
         const s = tapStart.current;
         const moved = s ? Math.hypot(e.clientX - s.x, e.clientY - s.y) : 0;
-        if (moved < 6 && selectedIds.length) onSelect("");
+        if (moved >= 6) return; // a pan, not a tap
+        // A live selection is dismissed first; an empty tap then proposes the
+        // figures born in that spot's decade.
+        if (selectedIds.length) {
+          onSelect("");
+          return;
+        }
+        const rect = e.currentTarget.getBoundingClientRect();
+        const along = horizontal ? e.clientX - rect.left : e.clientY - rect.top;
+        const year = Math.round(view.yearAt(along));
+        if (year < MIN_YEAR || year > CURRENT_YEAR) return;
+        onPickYear(year, { x: e.clientX, y: e.clientY });
       }}
     >
       <YearGrid view={view} />
@@ -91,30 +117,60 @@ export function Timeline({ people, view, selectedIds, onSelect, onExpand, onRemo
 
       {/* People */}
       {visible.map((person) => {
-        const placement = lanes.get(person.id) ?? { side: "primary" as Side, lane: 0 };
         const mainPos = view.posOf(person.birthYear);
-        const offset = geo.baseOffset + placement.lane * geo.laneStep;
         const isSelected = selectedIds.includes(person.id);
         const dimmed = selectedIds.length === 2 && !isSelected;
+        
+        // Interaction-based stacking and transparency
+        const interactionIndex = interactionOrder.indexOf(person.id);
+        const interactionProgress = interactionOrder.length > 1 
+          ? interactionIndex / (interactionOrder.length - 1)
+          : 1;
+        
+        // Cards that haven't been touched in a while fade out
+        const stackOpacity = isSelected ? 1 : 0.4 + 0.6 * interactionProgress;
+        const stackZ = (isSelected ? 100 : 5) + interactionIndex;
 
+        const card = (
+          <PersonCard
+            person={person}
+            orientation={view.orientation}
+            selected={isSelected}
+            dimmed={dimmed}
+            opacity={stackOpacity}
+            onSelect={() => onSelect(person.id)}
+            onExpand={() => onExpand(person.id)}
+            onRemove={() => onRemove(person.id)}
+          />
+        );
+
+        if (!horizontal) {
+          const push = stacks?.get(person.id)?.push ?? 0;
+          return (
+            <RailNode 
+              key={person.id} 
+              mainPos={mainPos} 
+              push={push} 
+              selected={isSelected}
+              zIndex={stackZ}
+            >
+              {card}
+            </RailNode>
+          );
+        }
+
+        const placement: Placement = lanes?.get(person.id) ?? { side: "primary" as Side, lane: 0 };
+        const offset = H_GEO.baseOffset + placement.lane * H_GEO.laneStep;
         return (
           <PersonNode
             key={person.id}
-            horizontal={horizontal}
             side={placement.side}
             mainPos={mainPos}
             offset={offset}
             selected={isSelected}
+            zIndex={stackZ}
           >
-            <PersonCard
-              person={person}
-              orientation={view.orientation}
-              selected={isSelected}
-              dimmed={dimmed}
-              onSelect={() => onSelect(person.id)}
-              onExpand={() => onExpand(person.id)}
-              onRemove={() => onRemove(person.id)}
-            />
+            {card}
           </PersonNode>
         );
       })}
@@ -137,7 +193,7 @@ function TimelineSpine({
   const length = Math.abs(to - from);
   return (
     <>
-      {/* Phosphor bloom — the soft glow the trace leaves on the screen */}
+      {/* Soft bloom — the warm glow the trace casts into the dark */}
       <div
         className="pointer-events-none absolute"
         style={
@@ -155,7 +211,7 @@ function TimelineSpine({
             : {
                 top: start,
                 height: length,
-                left: "50%",
+                left: RAIL_X,
                 width: 24,
                 transform: "translateX(-50%)",
                 background:
@@ -164,7 +220,7 @@ function TimelineSpine({
               }
         }
       />
-      {/* The trace — a crisp, bright phosphor line */}
+      {/* The trace — a fine, bright gold line */}
       <div
         className="pointer-events-none absolute"
         style={
@@ -183,7 +239,7 @@ function TimelineSpine({
             : {
                 top: start,
                 height: length,
-                left: "50%",
+                left: RAIL_X,
                 width: 2,
                 transform: "translateX(-50%)",
                 background:
@@ -197,7 +253,7 @@ function TimelineSpine({
   );
 }
 
-/** The live cursor — a cyan sweep line marking the present, like a scope trigger. */
+/** A soft luminous line marking the present moment on the timeline. */
 function NowMarker({ horizontal, pos }: { horizontal: boolean; pos: number }) {
   return (
     <div
@@ -229,18 +285,20 @@ function NowMarker({ horizontal, pos }: { horizontal: boolean; pos: number }) {
         }
       />
       <div
-        className="absolute h-2 w-2 bg-cyan shadow-[0_0_10px_2px_rgb(var(--cyan)/0.8)]"
+        className="absolute h-2 w-2 rounded-full bg-cyan shadow-[0_0_10px_2px_rgb(var(--cyan)/0.8)]"
         style={{
-          left: horizontal ? 0 : "50%",
+          left: horizontal ? 0 : RAIL_X,
           top: horizontal ? "50%" : 0,
-          transform: "translate(-50%, -50%) rotate(45deg)",
+          transform: "translate(-50%, -50%)",
         }}
       />
       <span
-        className={[
-          "absolute whitespace-nowrap font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-soft",
-          horizontal ? "left-2 top-3" : "left-1/2 top-3 -translate-x-1/2",
-        ].join(" ")}
+        className="absolute whitespace-nowrap font-sans text-[11px] tracking-wide text-cyan-soft"
+        style={
+          horizontal
+            ? { left: 10, top: 12 }
+            : { left: RAIL_X + 8, top: -4, transform: "translateY(-100%)" }
+        }
       >
         Now · {CURRENT_YEAR}
       </span>
@@ -263,11 +321,11 @@ function ComparisonSpan({
   const length = Math.abs(b - a);
   return (
     <div
-      className="pointer-events-none absolute z-10"
+      className={["pointer-events-none absolute", horizontal ? "z-10" : "z-30"].join(" ")}
       style={
         horizontal
           ? { left: start, width: length, top: "50%", transform: "translateY(-50%)" }
-          : { top: start, height: length, left: "50%", transform: "translateX(-50%)" }
+          : { top: start, height: length, left: RAIL_X, transform: "translateX(-50%)" }
       }
     >
       <div
@@ -299,8 +357,8 @@ function ComparisonSpan({
       {[0, 1].map((end) => (
         <div
           key={end}
-          className="absolute h-2 w-2 bg-gold-soft shadow-[0_0_10px_2px_rgb(var(--gold-soft)/0.9)]"
-          // square end-caps to match the readout blips
+          className="absolute h-2 w-2 rounded-full bg-gold-soft shadow-[0_0_10px_2px_rgb(var(--gold-soft)/0.9)]"
+          // round end-caps marking each birth year
           style={
             horizontal
               ? { left: end ? "100%" : 0, top: "50%", transform: "translate(-50%,-50%)" }
@@ -309,7 +367,7 @@ function ComparisonSpan({
         />
       ))}
       <span
-        className="absolute whitespace-nowrap rounded-sm border border-gold/40 bg-ink-800/90 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-gold-soft backdrop-blur-sm"
+        className="absolute whitespace-nowrap rounded-full border border-gold/40 bg-ink-800/90 px-2.5 py-0.5 font-sans text-[12px] tabular-nums text-gold-soft backdrop-blur-sm"
         style={{
           left: horizontal ? "50%" : "50%",
           top: horizontal ? "50%" : "50%",
@@ -322,72 +380,121 @@ function ComparisonSpan({
   );
 }
 
-/** Positions a card + connector + dot relative to the line. */
+/** Desktop: positions a card above/below the line with a leader + connector. */
 function PersonNode({
-  horizontal,
   side,
   mainPos,
   offset,
+  zIndex,
   selected,
   children,
 }: {
-  horizontal: boolean;
   side: Side;
   mainPos: number;
   offset: number;
+  zIndex: number;
   selected: boolean;
   children: React.ReactNode;
 }) {
-  // primary = above (h) / right (v); secondary = below (h) / left (v)
-  const away = side === "primary";
-  const z = selected ? 20 : 5;
-
-  // Leader line from the trace to the callout — solid amber near the blip,
-  // fading toward the plate, like an annotation line on a readout.
-  const connector = (
-    <div
-      className="pointer-events-none absolute"
-      style={
-        horizontal
-          ? {
-              left: mainPos,
-              width: 1,
-              top: away ? `calc(50% - ${offset}px)` : "50%",
-              height: offset,
-              transform: "translateX(-50%)",
-              backgroundImage: `linear-gradient(${away ? "0deg" : "180deg"}, rgb(var(--gold) / ${selected ? 0.5 : 0.25}), rgb(var(--gold) / ${selected ? 0.85 : 0.5}))`,
-            }
-          : {
-              top: mainPos,
-              height: 1,
-              left: away ? "50%" : `calc(50% - ${offset}px)`,
-              width: offset,
-              transform: "translateY(-50%)",
-              backgroundImage: `linear-gradient(${away ? "90deg" : "270deg"}, rgb(var(--gold) / ${selected ? 0.85 : 0.5}), rgb(var(--gold) / ${selected ? 0.5 : 0.25}))`,
-            }
-      }
-    />
-  );
-
-  // Card position
-  const cardStyle: React.CSSProperties = horizontal
-    ? {
-        left: mainPos,
-        top: away ? `calc(50% - ${offset}px)` : `calc(50% + ${offset}px)`,
-        transform: away ? "translate(-50%, -100%)" : "translate(-50%, 0)",
-      }
-    : {
-        top: mainPos,
-        left: away ? `calc(50% + ${offset}px)` : `calc(50% - ${offset}px)`,
-        transform: away ? "translate(0, -50%)" : "translate(-100%, -50%)",
-      };
+  const away = side === "primary"; // primary = above, secondary = below
 
   return (
-    <div style={{ zIndex: z }}>
-      {connector}
-      <div className="absolute" style={cardStyle}>
+    <div style={{ zIndex }}>
+      {/* Leader line from the trace to the callout — bright near the blip. */}
+      <div
+        className="pointer-events-none absolute"
+        style={{
+          left: mainPos,
+          width: 1,
+          top: away ? `calc(50% - ${offset}px)` : "50%",
+          height: offset,
+          transform: "translateX(-50%)",
+          backgroundImage: `linear-gradient(${away ? "0deg" : "180deg"}, rgb(var(--gold) / ${selected ? 0.5 : 0.25}), rgb(var(--gold) / ${selected ? 0.85 : 0.5}))`,
+        }}
+      />
+      <div
+        className="absolute"
+        style={{
+          left: mainPos,
+          top: away ? `calc(50% - ${offset}px)` : `calc(50% + ${offset}px)`,
+          transform: away ? "translate(-50%, -100%)" : "translate(-50%, 0)",
+        }}
+      >
         {children}
       </div>
     </div>
+  );
+}
+
+/**
+ * Mobile: a single-column node hanging off the left rail. The dot stays at the
+ * person's true year; the card may be pushed down (de-overlap) and an elbow
+ * connector ties it back to the dot.
+ */
+function RailNode({
+  mainPos,
+  push,
+  zIndex,
+  selected,
+  children,
+}: {
+  mainPos: number;
+  push: number;
+  zIndex: number;
+  selected: boolean;
+  children: React.ReactNode;
+}) {
+  const cardCenter = mainPos + push;
+  return (
+    <div style={{ zIndex }}>
+      {/* Blip on the rail at the true birth year */}
+      <div
+        className="pointer-events-none absolute h-1.5 w-1.5 rounded-full bg-gold-soft shadow-[0_0_8px_2px_rgb(var(--gold)/0.55)]"
+        style={{ left: RAIL_X, top: mainPos, transform: "translate(-50%, -50%)" }}
+      />
+      <RailConnector fromY={mainPos} toY={cardCenter} selected={selected} />
+      <div
+        className="absolute"
+        style={{ left: CARD_X, top: cardCenter, transform: "translateY(-50%)" }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Elbow leader from the rail dot (fromY) to the card centre (toY). */
+function RailConnector({
+  fromY,
+  toY,
+  selected,
+}: {
+  fromY: number;
+  toY: number;
+  selected: boolean;
+}) {
+  const top = Math.min(fromY, toY);
+  const height = Math.max(1, Math.abs(toY - fromY));
+  const width = CARD_X - RAIL_X;
+  const y1 = fromY - top;
+  const y2 = toY - top;
+  const midX = width * 0.5;
+  const op = selected ? 0.75 : 0.4;
+  return (
+    <svg
+      className="pointer-events-none absolute overflow-visible text-gold"
+      style={{ left: RAIL_X, top, width, height }}
+      width={width}
+      height={height}
+      fill="none"
+    >
+      {/* horizontal off the rail → vertical to the card row → into the card */}
+      <path
+        d={`M0 ${y1} H ${midX} V ${y2} H ${width}`}
+        stroke="currentColor"
+        strokeWidth={1}
+        style={{ opacity: op }}
+      />
+    </svg>
   );
 }

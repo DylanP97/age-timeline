@@ -41,6 +41,18 @@ export function usePeople() {
   const addPerson = useCallback((person: Omit<Person, "id">) => {
     const created: Person = { ...person, id: makeId() };
     setPeople((prev) => [...prev, created]);
+    // Figures added without a portrait (era suggestions, curated historical
+    // entries) get one fetched from the web, best-effort, and it then persists.
+    if (!created.imageUrl) {
+      fetchPortrait(created.name).then((imageUrl) => {
+        if (!imageUrl) return;
+        setPeople((prev) =>
+          prev.map((p) =>
+            p.id === created.id && !p.imageUrl ? { ...p, imageUrl } : p,
+          ),
+        );
+      });
+    }
     return created;
   }, []);
 

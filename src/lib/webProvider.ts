@@ -20,6 +20,28 @@ const WDQS = "https://query.wikidata.org/sparql";
 /** How many years either side of the target counts as "the same generation". */
 const ERA_WINDOW = 25;
 
+/**
+ * Maximally-broad "field" occupations (P106) that make poor relatedness signals
+ * on their own: practically everyone in a field carries them, so querying peers
+ * by "singer" returns whichever actors, DJs or opera stars merely *also* sing,
+ * ranked by global fame — not the subject's actual kind of peer. We drop these
+ * when a more specific occupation survives (e.g. keep "singer-songwriter", drop
+ * "singer"), which both sharpens the results and shrinks the query's candidate
+ * set. A subject whose *only* occupations are broad keeps them — better a wide
+ * net than none.
+ */
+const UMBRELLA_OCCUPATIONS = new Set<string>([
+  "Q177220", // singer
+  "Q639669", // musician
+  "Q33999", // actor
+  "Q36180", // writer
+  "Q482980", // author
+  "Q82955", // politician
+  "Q483501", // artist
+  "Q2066131", // athlete (generic parent; specific sports survive)
+  "Q43845", // businessperson
+]);
+
 interface WikiPage {
   index: number;
   title: string;
@@ -104,6 +126,52 @@ async function fetchPeersByOccupation(
 ORDER BY DESC(?links)
 LIMIT 25`;
 
+  return runWdqs(query, signal);
+}
+
+/**
+ * Famous people *born in a given span* — the figures to propose when someone
+ * taps an empty stretch of the timeline. Pure Wikidata: humans (P31=Q5) with a
+ * birth year (P569) inside the window, gated to the genuinely notable by a
+ * sitelink-count floor and ranked by that same global-fame signal, portraits
+ * (P18) pulled in. Best-effort: throws to its caller, which backfills locally.
+ *
+ * The `?person` projection and the binding shape match `fetchPeersByOccupation`
+ * so both feed the shared `runWdqs` parser.
+ */
+export async function fetchBornAround(
+  startYear: number,
+  endYear: number,
+  signal?: AbortSignal,
+  limit = 12,
+): Promise<CelebrityResult[]> {
+  const query = `SELECT ?person ?personLabel ?desc ?birth ?death ?img ?links WHERE {
+  ?person wdt:P31 wd:Q5 ;
+          wdt:P569 ?dob ;
+          wikibase:sitelinks ?links .
+  BIND(YEAR(?dob) AS ?birth)
+  FILTER(?birth >= ${startYear} && ?birth <= ${endYear})
+  FILTER(?links >= 60)
+  OPTIONAL { ?person wdt:P570 ?dod . BIND(YEAR(?dod) AS ?death) }
+  OPTIONAL { ?person wdt:P18 ?img }
+  ?person rdfs:label ?personLabel . FILTER(LANG(?personLabel) = "en")
+  OPTIONAL { ?person schema:description ?desc . FILTER(LANG(?desc) = "en") }
+}
+ORDER BY DESC(?links)
+LIMIT ${limit}`;
+  return runWdqs(query, signal);
+}
+
+/**
+ * Run a WDQS SELECT and parse its bindings into `CelebrityResult`s. Expects the
+ * standard projection used across this module — ?personLabel, ?birth, ?death,
+ * ?img, ?desc — and keeps only rows with a usable birth year, de-duplicating by
+ * name while preserving the query's own ORDER BY.
+ */
+async function runWdqs(
+  query: string,
+  signal?: AbortSignal,
+): Promise<CelebrityResult[]> {
   const res = await fetch(`${WDQS}?format=json&query=${encodeURIComponent(query)}`, {
     signal: withTimeout(signal, 9000),
     headers: { Accept: "application/sparql-results+json" },
@@ -152,10 +220,13 @@ async function resolveOccupations(
   if (!eres.ok) return null;
   const ejson = await eres.json();
   const claims: unknown[] = ejson.entities?.[id]?.claims?.P106 ?? [];
-  const occupations = claims
+  const all = claims
     .map((c) => (c as Claim)?.mainsnak?.datavalue?.value?.id)
-    .filter((q): q is string => typeof q === "string")
-    .slice(0, 4); // a few top occupations keeps the query focused and fast
+    .filter((q): q is string => typeof q === "string");
+  // Prefer specific occupations; fall back to the broad ones only if that's all
+  // there is, so the peer query stays focused (see UMBRELLA_OCCUPATIONS).
+  const specific = all.filter((q) => !UMBRELLA_OCCUPATIONS.has(q));
+  const occupations = (specific.length > 0 ? specific : all).slice(0, 4);
   return { id, occupations };
 }
 
@@ -221,7 +292,9 @@ async function searchPeople(
     results.push({
       name: page.title,
       birthYear: life.birthYear,
+      birthDate: life.birthDate,
       deathYear: life.deathYear,
+      deathDate: life.deathDate,
       imageUrl: page.thumbnail?.source,
       blurb: page.description,
     });
@@ -229,10 +302,17 @@ async function searchPeople(
   return results;
 }
 
+interface Life {
+  birthYear: number | null;
+  birthDate?: string;
+  deathYear?: number;
+  deathDate?: string;
+}
+
 async function fetchYears(
   ids: string[],
   signal?: AbortSignal,
-): Promise<Map<string, { birthYear: number | null; deathYear?: number }>> {
+): Promise<Map<string, Life>> {
   const url =
     `${WIKIDATA}?action=wbgetentities&props=claims&format=json&origin=*` +
     `&ids=${ids.join("|")}`;
@@ -240,12 +320,14 @@ async function fetchYears(
   if (!res.ok) throw new Error(`wikidata entities ${res.status}`);
   const json = await res.json();
 
-  const out = new Map<string, { birthYear: number | null; deathYear?: number }>();
+  const out = new Map<string, Life>();
   for (const id of ids) {
     const claims = json.entities?.[id]?.claims ?? {};
     out.set(id, {
       birthYear: yearFromClaim(claims.P569),
+      birthDate: isoFromClaim(claims.P569),
       deathYear: yearFromClaim(claims.P570) ?? undefined,
+      deathDate: isoFromClaim(claims.P570),
     });
   }
   return out;
@@ -260,4 +342,24 @@ function yearFromClaim(claim: unknown): number | null {
   if (!m) return null;
   const year = parseInt(m[2], 10);
   return m[1] === "-" ? -year : year;
+}
+
+/**
+ * Full ISO "YYYY-MM-DD" from a Wikidata claim, but only when the day is
+ * actually known (precision 11). Wikidata pads imprecise dates with "-00" or
+ * normalises them to Jan 1 at precision <11, so we return undefined there and
+ * let the year-only path handle them — better an approximate age than a fake
+ * January birthday.
+ */
+function isoFromClaim(claim: unknown): string | undefined {
+  if (!Array.isArray(claim) || claim.length === 0) return undefined;
+  const value = claim[0]?.mainsnak?.datavalue?.value;
+  const time: string | undefined = value?.time;
+  if (!time) return undefined;
+  if (typeof value?.precision === "number" && value.precision < 11) return undefined;
+  const m = /^\+(\d{4})-(\d{2})-(\d{2})/.exec(time); // CE, day precision only
+  if (!m) return undefined;
+  const [, year, month, day] = m;
+  if (month === "00" || day === "00") return undefined;
+  return `${year}-${month}-${day}`;
 }

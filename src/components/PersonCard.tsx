@@ -8,6 +8,7 @@ interface Props {
   orientation: Orientation;
   selected: boolean;
   dimmed: boolean;
+  opacity?: number;
   onSelect: () => void;
   onExpand: () => void;
   onRemove: () => void;
@@ -18,6 +19,7 @@ export function PersonCard({
   orientation,
   selected,
   dimmed,
+  opacity = 1,
   onSelect,
   onExpand,
   onRemove,
@@ -34,24 +36,20 @@ export function PersonCard({
         onSelect();
       }}
       className={[
-        "group pointer-events-auto relative cursor-pointer select-none rounded-sm border backdrop-blur-md transition-[transform,box-shadow,border-color,opacity] duration-300 ease-glide",
-        horizontal ? "w-[128px] px-3 py-2.5" : "w-[158px] px-3 py-2.5",
+        "group pointer-events-auto relative cursor-pointer select-none rounded-xl border backdrop-blur-md transition-[transform,box-shadow,border-color,opacity] duration-300 ease-glide",
+        horizontal ? "w-[132px] px-3.5 py-3" : "w-[min(300px,calc(100vw-80px))] px-3.5 py-3",
         selected
-          ? "border-gold/70 bg-ink-800/90"
-          : "border-gold/20 bg-ink-800/70 hover:border-gold/45 hover:bg-ink-700/80",
-        dimmed ? "opacity-30" : "opacity-100",
+          ? "border-gold/60 bg-ink-800/90"
+          : "border-gold/15 bg-ink-800/65 hover:border-gold/40 hover:bg-ink-700/75",
       ].join(" ")}
       style={{
         boxShadow: selected
-          ? "0 0 0 1px rgb(var(--gold) / 0.35), 0 0 26px rgb(var(--gold) / 0.3), 0 14px 40px -18px rgb(0 0 0 / 0.8)"
-          : "0 10px 30px -20px rgb(0 0 0 / 0.85)",
+          ? "0 0 0 1px rgb(var(--gold) / 0.3), 0 0 30px rgb(var(--gold) / 0.28), 0 18px 44px -20px rgb(0 0 0 / 0.85)"
+          : "0 12px 32px -22px rgb(0 0 0 / 0.85)",
         transform: selected ? "scale(1.04)" : undefined,
+        opacity: selected ? 1 : dimmed ? Math.min(opacity, 0.3) : opacity,
       }}
     >
-      {/* corner brackets — readout annotation framing */}
-      <Bracket className="left-0 top-0 border-l border-t" selected={selected} />
-      <Bracket className="bottom-0 right-0 border-b border-r" selected={selected} />
-
       <div
         className={
           horizontal
@@ -63,13 +61,13 @@ export function PersonCard({
           <Portrait
             name={person.name}
             imageUrl={person.imageUrl}
-            size={horizontal ? 52 : 44}
+            size={horizontal ? 52 : 48}
             deceased={deceased}
           />
           {deceased && (
             <span
               title={`In memoriam · ${person.birthYear}–${person.deathYear}`}
-              className="absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-sm border border-frost/15 bg-ink-800 text-frost-dim shadow-[0_2px_6px_rgb(var(--ink-900)/0.6)]"
+              className="absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-frost/15 bg-ink-800 text-frost-dim shadow-[0_2px_6px_rgb(var(--ink-900)/0.6)]"
             >
               <CrossIcon />
             </span>
@@ -78,7 +76,7 @@ export function PersonCard({
 
         <div className={horizontal ? "mt-2 w-full" : "min-w-0 flex-1"}>
           <div
-            className="truncate font-mono text-[12px] font-medium uppercase leading-tight tracking-[0.04em] text-frost"
+            className="truncate font-display text-[17px] font-medium leading-tight text-frost"
             title={person.name}
           >
             {person.name}
@@ -86,7 +84,7 @@ export function PersonCard({
           {deceased ? (
             <div
               className={[
-                "mt-1 font-mono text-[11px] leading-tight text-frost-dim",
+                "mt-0.5 font-sans text-[12px] leading-tight text-frost-dim",
                 horizontal ? "" : "flex items-baseline gap-1.5",
               ].join(" ")}
             >
@@ -96,7 +94,7 @@ export function PersonCard({
               <span className={horizontal ? "block" : ""}>· {age} yrs</span>
             </div>
           ) : (
-            <div className="mt-0.5 flex items-baseline gap-1.5 font-mono text-[11px] text-frost-dim">
+            <div className="mt-0.5 flex items-baseline gap-1.5 font-sans text-[12px] text-frost-dim">
               <span className="text-gold-soft">{person.birthYear}</span>
               <span>· {age} yrs</span>
             </div>
@@ -112,7 +110,7 @@ export function PersonCard({
           e.stopPropagation();
           onExpand();
         }}
-        className="absolute -left-2 -top-2 flex h-6 w-6 items-center justify-center rounded-sm border border-frost/15 bg-ink-800/95 text-frost-dim opacity-0 backdrop-blur-sm transition hover:border-gold/50 hover:text-gold group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+        className="absolute -left-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-frost/15 bg-ink-800/95 text-frost-dim opacity-0 backdrop-blur-sm transition hover:border-gold/50 hover:text-gold group-hover:opacity-100 [@media(hover:none)]:opacity-100"
       >
         <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
           <circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth="1.4" />
@@ -127,7 +125,7 @@ export function PersonCard({
           e.stopPropagation();
           onRemove();
         }}
-        className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-sm border border-frost/15 bg-ink-800/95 text-frost-dim opacity-0 backdrop-blur-sm transition hover:border-gold/50 hover:text-gold group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+        className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-frost/15 bg-ink-800/95 text-frost-dim opacity-0 backdrop-blur-sm transition hover:border-gold/50 hover:text-gold group-hover:opacity-100 [@media(hover:none)]:opacity-100"
       >
         <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
           <path
@@ -140,23 +138,9 @@ export function PersonCard({
       </button>
 
       {person.type === "celebrity" && !deceased && (
-        <div className="pointer-events-none absolute left-2 top-2 h-1.5 w-1.5 bg-gold/70 shadow-[0_0_6px_rgb(var(--gold)/0.9)]" />
+        <div className="pointer-events-none absolute left-2.5 top-2.5 h-1.5 w-1.5 rounded-full bg-gold/70 shadow-[0_0_6px_rgb(var(--gold)/0.9)]" />
       )}
     </div>
-  );
-}
-
-/** A small L-shaped corner bracket framing the readout plate. */
-function Bracket({ className, selected }: { className: string; selected: boolean }) {
-  return (
-    <span
-      aria-hidden
-      className={[
-        "pointer-events-none absolute h-2.5 w-2.5",
-        selected ? "border-gold/80" : "border-gold/40",
-        className,
-      ].join(" ")}
-    />
   );
 }
 

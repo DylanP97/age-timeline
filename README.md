@@ -1,4 +1,4 @@
-# AgeLine
+# How old is ...
 
 An interactive age-comparison **timeline instrument**. Place people on a luminous
 timeline by birth year to feel the overlap between generations, eras, and lives.

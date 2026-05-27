@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 export type Theme = "dark" | "light";
-const KEY = "ageline.theme";
+const KEY = "how-old-is.theme";
 
 function initial(): Theme {
   if (typeof window === "undefined") return "dark";

@@ -56,7 +56,9 @@ export function CelebritySearchModal({ onClose, onAdd, existing }: Props) {
     onAdd({
       name: c.name,
       birthYear: c.birthYear,
+      birthDate: c.birthDate,
       deathYear: c.deathYear,
+      deathDate: c.deathDate,
       imageUrl: c.imageUrl,
       type: "celebrity",
     });
@@ -119,7 +121,7 @@ export function CelebritySearchModal({ onClose, onAdd, existing }: Props) {
         {query.trim() ? (
           <>
             {loading && (
-              <p className="py-6 text-center font-mono text-[11px] uppercase tracking-widest text-frost-dim animate-pulse-soft">
+              <p className="py-6 text-center font-sans text-[13px] text-frost-dim animate-pulse-soft">
                 Searching…
               </p>
             )}
@@ -139,11 +141,11 @@ export function CelebritySearchModal({ onClose, onAdd, existing }: Props) {
               <CheckIcon />
               Added <span className="font-display text-gold-soft">{lastAdded.name}</span>
             </p>
-            <p className="mb-1.5 mt-4 px-1 font-mono text-[10px] uppercase tracking-[0.25em] text-frost-dim/70">
+            <p className="mb-1.5 mt-4 px-1 font-display text-[15px] italic text-frost-dim/80">
               Related figures you might add
             </p>
             {suggesting ? (
-              <p className="py-6 text-center font-mono text-[11px] uppercase tracking-widest text-frost-dim animate-pulse-soft">
+              <p className="py-6 text-center font-sans text-[13px] text-frost-dim animate-pulse-soft">
                 Finding related figures…
               </p>
             ) : suggestions.length > 0 ? (
@@ -186,7 +188,7 @@ function ResultRow({
           <div className="truncate font-sans text-[12px] text-frost-dim">{c.blurb}</div>
         )}
       </div>
-      <div className="text-right font-mono text-[11px] text-gold-soft">
+      <div className="text-right font-sans text-[12px] tabular-nums text-gold-soft">
         {c.birthYear}
         {c.deathYear ? (
           <span className="text-frost-dim"> – {c.deathYear}</span>

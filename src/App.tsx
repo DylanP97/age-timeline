@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Person } from "./types";
 import { usePeople } from "./hooks/usePeople";
 import { useIsMobile } from "./hooks/useMediaQuery";
 import { useTimelineView } from "./hooks/useTimelineView";
@@ -11,11 +12,14 @@ import { ComparisonOverlay } from "./components/ComparisonOverlay";
 import { AddPersonModal } from "./components/AddPersonModal";
 import { CelebritySearchModal } from "./components/CelebritySearchModal";
 import { PersonDetail } from "./components/PersonDetail";
+import { OnboardingModal } from "./components/OnboardingModal";
+import { EraSuggestions } from "./components/EraSuggestions";
 
-type Dialog = "none" | "person" | "celebrity";
+type Dialog = "none" | "person" | "celebrity" | "onboarding";
 
-/** The era framed when the instrument first opens. */
-const INITIAL_VIEW_START = 1930;
+/** The era framed when the instrument first opens — kept close to today so the
+ *  opening view is dominated by living figures, with history a pan away. */
+const INITIAL_VIEW_START = 1950;
 
 export default function App() {
   const isMobile = useIsMobile();
@@ -24,12 +28,55 @@ export default function App() {
   const view = useTimelineView(isMobile ? "vertical" : "horizontal");
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [interactionOrder, setInteractionOrder] = useState<string[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog>("none");
+  // Era prompt floating at a tapped point on the empty trace.
+  const [eraPick, setEraPick] = useState<{
+    year: number;
+    point: { x: number; y: number };
+  } | null>(null);
+
+  // Sync interactionOrder with people changes
+  useEffect(() => {
+    setInteractionOrder((prev) => {
+      const currentIds = people.map((p) => p.id);
+      // Keep existing order for known IDs, add new ones at the end, remove gone ones.
+      const kept = prev.filter((id) => currentIds.includes(id));
+      const added = currentIds.filter((id) => !prev.includes(id));
+      return [...kept, ...added];
+    });
+  }, [people]);
+
+  // Check for onboarding on mount
+  useEffect(() => {
+    const onboarded = localStorage.getItem("how-old-is.onboarded");
+    if (!onboarded) {
+      setDialog("onboarding");
+    }
+  }, []);
+
+  const handleOnboardingComplete = useCallback(
+    (userData: Omit<Person, "id">) => {
+      const user = addPerson(userData);
+      localStorage.setItem("how-old-is.onboarded", "true");
+      setDialog("none");
+      // Select the user immediately
+      setSelectedIds([user.id]);
+    },
+    [addPerson],
+  );
 
   // Toggle selection, keeping at most two (drop the oldest). "" clears.
   const handleSelect = useCallback((id: string) => {
     if (id === "") return setSelectedIds([]);
+    
+    // Move to front of stacking order
+    setInteractionOrder((prev) => {
+      const filtered = prev.filter((p) => p !== id);
+      return [...filtered, id];
+    });
+
     setSelectedIds((prev) => {
       if (prev.includes(id)) return prev.filter((p) => p !== id);
       return [...prev, id].slice(-2);
@@ -45,7 +92,7 @@ export default function App() {
     [removePerson],
   );
 
-  // Frame the modern era (1930 → today) on first load, and again whenever the
+  // Frame the modern era (1950 → today) on first load, and again whenever the
   // layout axis flips (desktop ↔ mobile). Older figures sit just off-screen,
   // a pan/scroll away into history.
   const fittedFor = useRef<string>("");
@@ -76,7 +123,7 @@ export default function App() {
 
   return (
     <div className="relative h-[100dvh] w-screen overflow-hidden bg-ink-900 text-frost">
-      {/* Screen wash + phosphor bloom along the trace (painted under the trace) */}
+      {/* Warm wash + gold bloom along the trace (painted under the trace) */}
       <div className="pointer-events-none absolute inset-0">
         <div
           className="absolute inset-0 transition-[background] duration-500"
@@ -85,7 +132,7 @@ export default function App() {
               "radial-gradient(130% 100% at 50% 50%, rgb(var(--atmo-haze) / var(--atmo-haze-a)), transparent 60%)",
           }}
         />
-        {/* Phosphor bloom running along the timeline's axis */}
+        {/* Gold bloom running along the timeline's axis */}
         <div
           className="absolute inset-0 transition-[background] duration-500"
           style={{
@@ -95,7 +142,7 @@ export default function App() {
           }}
         />
         <div
-          className="absolute inset-0 mix-blend-soft-light"
+          className="absolute inset-0 mix-blend-overlay"
           style={{
             opacity: "var(--noise-a)",
             backgroundImage:
@@ -109,34 +156,46 @@ export default function App() {
         people={people}
         view={view}
         selectedIds={selectedIds}
+        interactionOrder={interactionOrder}
         onSelect={handleSelect}
         onExpand={setExpandedId}
         onRemove={handleRemove}
+        onPickYear={(year, point) => setEraPick({ year, point })}
       />
 
-      {/* CRT glass — graticule, scanlines, vignette over the trace */}
+      {/* Grid + vignette atmosphere over the trace */}
       <ScreenFX />
 
-      {/* Header / wordmark — instrument readout label */}
-      <header className="pointer-events-none absolute left-5 top-5 z-20 select-none md:left-7 md:top-6">
+      {/* Mobile: a short scrim under the wordmark so the single column of rows
+          stays legible as it scrolls up past the header. */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 z-10 h-28 md:hidden"
+        style={{
+          background:
+            "linear-gradient(180deg, rgb(var(--ink-900)) 12%, rgb(var(--ink-900) / 0.7) 55%, transparent)",
+        }}
+      />
+
+      {/* Header / wordmark */}
+      <header className="pointer-events-none absolute left-6 top-5 z-20 select-none md:left-8 md:top-7">
         <h1
-          className="font-mono text-lg font-medium uppercase leading-none tracking-[0.22em] text-frost md:text-xl"
-          style={{ textShadow: "0 0 12px rgb(var(--gold) / 0.25)" }}
+          className="font-display text-3xl font-medium leading-none text-frost md:text-4xl"
+          style={{ textShadow: "0 0 24px rgb(var(--gold) / 0.3)" }}
         >
-          Age<span className="text-gold">Line</span>
+          How old is <span className="text-gold">...</span>
         </h1>
-        <p className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.3em] text-frost-dim/70">
-          <span className="text-gold/80">▸</span> time-domain scan
+        <p className="mt-2 font-sans text-[11px] font-light tracking-[0.12em] text-frost-dim/80">
+          a timeline of lives
         </p>
       </header>
 
       {/* Add actions */}
-      <div className="pointer-events-auto absolute right-5 top-5 z-20 flex items-center gap-2 md:right-7 md:top-6">
+      <div className="pointer-events-auto absolute right-5 top-5 z-20 flex items-center gap-2 md:right-7 md:top-7">
         <button
           onClick={toggleTheme}
           aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
           title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-          className="flex h-[34px] w-[34px] items-center justify-center rounded-sm border border-frost/15 bg-ink-700/70 text-frost-dim backdrop-blur-md transition hover:border-gold/50 hover:text-gold-soft active:scale-95"
+          className="flex h-[38px] w-[38px] items-center justify-center rounded-full border border-frost/15 bg-ink-700/60 text-frost-dim backdrop-blur-md transition hover:border-gold/50 hover:text-gold-soft active:scale-95"
         >
           {theme === "dark" ? <SunIcon /> : <MoonIcon />}
         </button>
@@ -146,7 +205,7 @@ export default function App() {
         </ActionButton>
         <ActionButton onClick={() => setDialog("person")}>
           <PlusIcon />
-          <span className="hidden sm:inline">Person</span>
+          <span className="hidden sm:inline">Custom Person</span>
         </ActionButton>
       </div>
 
@@ -155,8 +214,8 @@ export default function App() {
       {/* Selection hint */}
       {selectedPeople.length === 1 && (
         <div className="pointer-events-none absolute inset-x-0 bottom-7 z-10 flex justify-center px-4 md:bottom-9">
-          <p className="animate-fade-in rounded-sm border border-gold/25 bg-ink-800/80 px-4 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-frost-dim backdrop-blur-md">
-            <span className="text-gold/80">▸</span> select second subject to compare
+          <p className="animate-fade-in rounded-full border border-gold/25 bg-ink-800/80 px-5 py-2 font-sans text-[13px] text-frost-dim backdrop-blur-md">
+            Pick a second person to compare
           </p>
         </div>
       )}
@@ -166,7 +225,12 @@ export default function App() {
       )}
 
       {expandedPerson && (
-        <PersonDetail person={expandedPerson} onClose={() => setExpandedId(null)} />
+        <PersonDetail
+          person={expandedPerson}
+          onClose={() => setExpandedId(null)}
+          onAdd={addPerson}
+          existing={people}
+        />
       )}
 
       {dialog === "person" && (
@@ -176,6 +240,21 @@ export default function App() {
         <CelebritySearchModal
           onClose={() => setDialog("none")}
           onAdd={addPerson}
+          existing={people}
+        />
+      )}
+
+      {dialog === "onboarding" && (
+        <OnboardingModal onComplete={handleOnboardingComplete} />
+      )}
+
+      {eraPick && (
+        <EraSuggestions
+          key={eraPick.year}
+          year={eraPick.year}
+          point={eraPick.point}
+          onAdd={addPerson}
+          onClose={() => setEraPick(null)}
           existing={people}
         />
       )}
@@ -196,10 +275,10 @@ function ActionButton({
     <button
       onClick={onClick}
       className={[
-        "flex items-center gap-1.5 rounded-sm border px-3.5 py-2 font-mono text-[11px] uppercase tracking-[0.12em] backdrop-blur-md transition active:scale-95",
+        "flex items-center gap-2 rounded-full border px-4 py-2 font-sans text-[13px] backdrop-blur-md transition active:scale-95",
         primary
           ? "border-gold/50 bg-gold/10 text-gold-soft hover:bg-gold/20 hover:border-gold/70"
-          : "border-frost/15 bg-ink-700/70 text-frost-dim hover:border-frost/30 hover:text-frost",
+          : "border-frost/15 bg-ink-700/60 text-frost-dim hover:border-frost/30 hover:text-frost",
       ].join(" ")}
     >
       {children}

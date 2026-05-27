@@ -19,11 +19,11 @@ export function Portrait({ name, imageUrl, size, deceased }: Props) {
 
   return (
     <div
-      className="relative shrink-0 overflow-hidden rounded-sm ring-1 ring-gold/40"
+      className="relative shrink-0 overflow-hidden rounded-full ring-1 ring-gold/40"
       style={{
         width: size,
         height: size,
-        boxShadow: "0 0 0 1px rgb(var(--gold) / 0.2), 0 0 16px -3px rgb(var(--gold) / 0.5)",
+        boxShadow: "0 0 0 1px rgb(var(--gold) / 0.18), 0 0 18px -4px rgb(var(--gold) / 0.5)",
       }}
     >
       {imageUrl && !failed ? (
@@ -41,17 +41,17 @@ export function Portrait({ name, imageUrl, size, deceased }: Props) {
                 : "contrast(1.05) saturate(0.85) sepia(0.18)",
             }}
           />
-          {/* faint amber phosphor wash so portraits read on-screen */}
+          {/* faint warm wash so portraits sit in the candle-lit palette */}
           <div
             className="pointer-events-none absolute inset-0 mix-blend-overlay"
-            style={{ background: "rgb(var(--gold) / 0.14)" }}
+            style={{ background: "rgb(var(--gold) / 0.12)" }}
           />
         </>
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-ink-500 to-ink-700">
           <span
-            className="font-mono text-frost-dim"
-            style={{ fontSize: size * 0.38 }}
+            className="font-display text-frost-dim"
+            style={{ fontSize: size * 0.4 }}
           >
             {initials}
           </span>

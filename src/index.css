@@ -3,60 +3,61 @@
 @tailwind utilities;
 
 @layer base {
-  /* Dark theme (default) — cyan-phosphor CRT readout on cool black. RGB channel
-     triplets consumed by Tailwind tokens. NOTE: the `--gold` token family is
-     the *signal* color (now ice-cyan); `--cyan` is the warm *cursor* accent.
-     Names kept for token stability across the component tree. */
+  /* Dark theme (default) — warm gold illuminated on near-black. A cinematic,
+     candle-lit instrument: a single fine gold trace glowing in the dark. RGB
+     channel triplets consumed by Tailwind tokens (ink/gold/cyan/frost).
+     The `--gold` family is the signal color (the trace); `--cyan` is the warm
+     ivory accent that marks the present. Names kept for token stability. */
   :root,
   :root[data-theme="dark"] {
-    --ink-900: 5 7 9; /* the screen — cool black */
-    --ink-800: 10 13 17; /* panels / modals */
-    --ink-700: 15 19 24; /* readout plates (used translucent) */
-    --ink-600: 24 30 37; /* hover / selected */
-    --ink-500: 34 43 52; /* graticule fill */
-    --gold: 95 208 232; /* ice-cyan phosphor — the trace (signal) */
-    --gold-soft: 154 230 246;
-    --gold-dim: 58 120 140;
-    --cyan: 255 180 90; /* warm amber — the live cursor (accent) */
-    --cyan-soft: 255 206 142;
-    --cyan-dim: 150 110 60;
-    --frost: 216 226 236; /* cool screen-white text */
-    --frost-dim: 130 146 160;
+    --ink-900: 6 7 11; /* the dark — near-black */
+    --ink-800: 13 14 20; /* panels / modals */
+    --ink-700: 19 21 28; /* cards / plates (used translucent) */
+    --ink-600: 30 32 42; /* hover / selected */
+    --ink-500: 44 46 58; /* grid fill */
+    --gold: 216 178 122; /* warm gold — the trace (signal) */
+    --gold-soft: 233 205 158;
+    --gold-dim: 138 110 72;
+    --cyan: 250 240 222; /* warm ivory — the present (accent) */
+    --cyan-soft: 255 248 236;
+    --cyan-dim: 150 130 100;
+    --frost: 235 229 218; /* warm ivory text */
+    --frost-dim: 150 142 128;
     /* atmosphere tints */
-    --atmo-haze: 34 43 52; /* faint cool screen wash */
-    --atmo-glow: 95 208 232; /* phosphor bloom along the trace */
+    --atmo-haze: 40 34 28; /* faint warm wash */
+    --atmo-glow: 216 178 122; /* gold bloom along the trace */
     --atmo-haze-a: 0.4;
-    --atmo-glow-a: 0.08;
-    --noise-a: 0.4;
-    --grid-a: 0.05; /* graticule line strength */
-    --scan-a: 0.45; /* scanline strength */
+    --atmo-glow-a: 0.1;
+    --noise-a: 0.1; /* whisper of film grain */
+    --grid-a: 0.04; /* faint decade/year grid */
+    --scan-a: 0; /* no scanlines — elegant, not CRT */
     color-scheme: dark;
   }
 
-  /* Light theme — a plotter / blueprint printout: teal ink trace on cool paper.
-     Scanlines fade; the graticule becomes printed grid. `--gold` = teal signal,
-     `--cyan` = sepia cursor (mirrors the dark theme's role mapping). */
+  /* Light theme — warm paper: bronze ink on cream. The same elegant language
+     in daylight. `--gold` = bronze ink (signal); `--cyan` = burnt-sienna
+     accent for the present (mirrors the dark theme's role mapping). */
   :root[data-theme="light"] {
-    --ink-900: 232 235 234; /* cool paper */
-    --ink-800: 246 249 248; /* modals / elevated panels */
-    --ink-700: 249 251 250; /* plates (used translucent) */
-    --ink-600: 224 229 228; /* hover / selected */
-    --ink-500: 206 213 212; /* graticule fill */
-    --gold: 32 118 132; /* teal ink trace (signal) */
-    --gold-soft: 22 96 108;
-    --gold-dim: 150 184 188;
-    --cyan: 176 110 44; /* sepia ink cursor (accent) */
-    --cyan-soft: 146 88 32;
-    --cyan-dim: 200 168 122;
-    --frost: 30 36 38; /* ink text */
-    --frost-dim: 96 106 108;
-    --atmo-haze: 244 248 248;
-    --atmo-glow: 32 118 132;
+    --ink-900: 244 240 232; /* warm cream paper */
+    --ink-800: 250 247 240; /* modals / elevated panels */
+    --ink-700: 252 249 243; /* cards / plates */
+    --ink-600: 236 230 220; /* hover / selected */
+    --ink-500: 222 215 203; /* grid fill */
+    --gold: 150 110 50; /* bronze ink trace (signal) */
+    --gold-soft: 124 90 40;
+    --gold-dim: 198 170 120;
+    --cyan: 176 96 40; /* burnt-sienna accent (present) */
+    --cyan-soft: 150 78 30;
+    --cyan-dim: 206 168 128;
+    --frost: 46 38 28; /* warm ink text */
+    --frost-dim: 120 108 92;
+    --atmo-haze: 250 246 238;
+    --atmo-glow: 180 140 80;
     --atmo-haze-a: 0.5;
-    --atmo-glow-a: 0.05;
-    --noise-a: 0.25;
-    --grid-a: 0.07;
-    --scan-a: 0; /* no scanlines on paper */
+    --atmo-glow-a: 0.06;
+    --noise-a: 0.06;
+    --grid-a: 0.06;
+    --scan-a: 0;
     color-scheme: light;
   }
 
@@ -70,24 +71,17 @@
   body {
     background-color: rgb(var(--ink-900));
     color: rgb(var(--frost));
-    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-family: "Inter", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     /* The timeline owns all gestures; prevent the page from rubber-banding. */
     overscroll-behavior: none;
     -webkit-tap-highlight-color: transparent;
-    transition: background-color 0.4s ease, color 0.4s ease;
+    transition: background-color 0.5s ease, color 0.5s ease;
   }
 
   ::selection {
-    background: rgb(var(--gold) / 0.3);
-  }
-
-  /* Honour reduced-motion: kill the CRT flicker. */
-  @media (prefers-reduced-motion: reduce) {
-    [data-flicker] {
-      animation: none !important;
-    }
+    background: rgb(var(--gold) / 0.28);
   }
 }
 
@@ -97,7 +91,7 @@
     width: 6px;
   }
   .overflow-y-auto::-webkit-scrollbar-thumb {
-    background: rgba(205, 214, 228, 0.15);
+    background: rgb(var(--gold) / 0.2);
     border-radius: 999px;
   }
   .overflow-y-auto::-webkit-scrollbar-track {

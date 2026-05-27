@@ -36,7 +36,7 @@ function Btn({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="flex h-11 w-11 items-center justify-center rounded-sm border border-frost/15 bg-ink-700/70 text-frost-dim backdrop-blur-md transition hover:border-gold/50 hover:bg-ink-600/80 hover:text-gold-soft active:scale-95"
+      className="flex h-11 w-11 items-center justify-center rounded-full border border-frost/15 bg-ink-700/60 text-frost-dim backdrop-blur-md transition hover:border-gold/50 hover:bg-ink-600/70 hover:text-gold-soft active:scale-95"
     >
       {children}
     </button>

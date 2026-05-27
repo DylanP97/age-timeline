@@ -8,23 +8,33 @@ interface Props {
   onAdd: (person: Omit<Person, "id">) => void;
 }
 
+const TODAY_ISO = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, local
+
 export function AddPersonModal({ onClose, onAdd }: Props) {
   const [name, setName] = useState("");
-  const [birthYear, setBirthYear] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [deathDate, setDeathDate] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const submit = () => {
     const trimmed = name.trim();
-    const year = parseInt(birthYear, 10);
     if (!trimmed) return setError("A name is required.");
-    if (!Number.isFinite(year)) return setError("Enter a birth year.");
-    if (year < MIN_YEAR || year > CURRENT_YEAR)
-      return setError(`Year must be between ${MIN_YEAR} and ${CURRENT_YEAR}.`);
+    if (!birthDate) return setError("Enter a date of birth.");
+
+    const birthYear = parseInt(birthDate.slice(0, 4), 10);
+    if (birthYear < MIN_YEAR || birthYear > CURRENT_YEAR)
+      return setError(`Birth year must be between ${MIN_YEAR} and ${CURRENT_YEAR}.`);
+
+    if (deathDate && deathDate < birthDate)
+      return setError("Date of death can't be before birth.");
 
     onAdd({
       name: trimmed,
-      birthYear: year,
+      birthYear,
+      birthDate,
+      deathYear: deathDate ? parseInt(deathDate.slice(0, 4), 10) : undefined,
+      deathDate: deathDate || undefined,
       imageUrl: imageUrl.trim() || undefined,
       type: "custom",
     });
@@ -33,8 +43,8 @@ export function AddPersonModal({ onClose, onAdd }: Props) {
 
   return (
     <Modal
-      title="Add a person"
-      subtitle="Place anyone on the line by their birth year."
+      title="Add a custom person"
+      subtitle="Place anyone on the line by their date of birth."
       onClose={onClose}
     >
       <form
@@ -54,12 +64,24 @@ export function AddPersonModal({ onClose, onAdd }: Props) {
           />
         </Field>
 
-        <Field label="Birth year">
+        <Field label="Date of birth">
           <input
-            value={birthYear}
-            onChange={(e) => setBirthYear(e.target.value.replace(/[^0-9]/g, ""))}
-            inputMode="numeric"
-            placeholder={`${MIN_YEAR} – ${CURRENT_YEAR}`}
+            type="date"
+            value={birthDate}
+            onChange={(e) => setBirthDate(e.target.value)}
+            min={`${MIN_YEAR}-01-01`}
+            max={TODAY_ISO}
+            className={inputCls}
+          />
+        </Field>
+
+        <Field label="Date of death" hint="optional">
+          <input
+            type="date"
+            value={deathDate}
+            onChange={(e) => setDeathDate(e.target.value)}
+            min={birthDate || `${MIN_YEAR}-01-01`}
+            max={TODAY_ISO}
             className={inputCls}
           />
         </Field>
@@ -87,7 +109,7 @@ export function AddPersonModal({ onClose, onAdd }: Props) {
             type="submit"
             className="flex-1 rounded-lg border border-gold/40 bg-gold/10 py-2.5 font-sans text-sm text-gold-soft transition hover:bg-gold/20"
           >
-            Place on timeline
+            Place custom person on timeline
           </button>
         </div>
       </form>
@@ -110,7 +132,7 @@ function Field({
   return (
     <label className="block">
       <span className="mb-1.5 flex items-baseline gap-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-frost-dim">
+        <span className="font-sans text-[13px] text-frost-dim">
           {label}
         </span>
         {hint && <span className="text-[10px] text-frost-dim/50">{hint}</span>}

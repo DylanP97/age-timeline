@@ -1,6 +1,6 @@
 import type { Person } from "../types";
 
-const KEY = "ageline.people.v1";
+const KEY = "how-old-is.people.v1";
 
 export function loadPeople(): Person[] | null {
   try {

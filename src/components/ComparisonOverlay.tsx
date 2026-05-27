@@ -14,7 +14,7 @@ export function ComparisonOverlay({ comparison, onClose }: Props) {
     <div className="pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center px-4 md:bottom-8">
       <div className="pointer-events-auto w-full max-w-md animate-fade-up rounded-2xl border border-gold/25 bg-ink-800/85 px-5 py-4 backdrop-blur-xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.9)]">
         <div className="flex items-center justify-between">
-          <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-gold/70">
+          <span className="font-display text-[17px] italic text-gold/80">
             Comparison
           </span>
           <button
@@ -31,10 +31,10 @@ export function ComparisonOverlay({ comparison, onClose }: Props) {
         <div className="mt-3 flex items-center justify-center gap-4">
           <Figure name={older.name} image={older.imageUrl} year={older.birthYear} />
           <div className="flex flex-col items-center">
-            <span className="font-display text-3xl leading-none text-gold-soft">
+            <span className="font-display text-4xl leading-none text-gold-soft">
               {gap}
             </span>
-            <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-frost-dim">
+            <span className="mt-0.5 font-sans text-[11px] tracking-wide text-frost-dim">
               {gap === 1 ? "year" : "years"} apart
             </span>
           </div>
@@ -75,7 +75,7 @@ function Figure({
       <span className="mt-1.5 truncate w-full font-sans text-[11px] text-frost" title={name}>
         {name.split(" ")[0]}
       </span>
-      <span className="font-mono text-[10px] text-frost-dim">{year}</span>
+      <span className="font-sans text-[11px] tabular-nums text-frost-dim">{year}</span>
     </div>
   );
 }

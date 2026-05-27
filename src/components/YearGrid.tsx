@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { TimelineView } from "../hooks/useTimelineView";
 import { MAX_YEAR, MIN_YEAR } from "../lib/age";
+import { RAIL_X } from "../lib/geometry";
 
 const STEPS = [1, 2, 5, 10, 25, 50, 100];
 
@@ -47,17 +48,18 @@ export function YearGrid({ view }: { view: TimelineView }) {
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      {/* Faint era marks — small labels set just off the line, never on it. */}
-      {anchors.map((year) => {
+      {/* Faint era marks — desktop only; on the mobile rail they'd sit under
+          the card column, so we drop them there. */}
+      {horizontal && anchors.map((year) => {
         const pos = view.posOf(year);
         return (
           <span
             key={`anchor-${year}`}
-            className="absolute select-none font-mono text-[10px] tracking-[0.25em] text-frost-dim/30"
+            className="absolute select-none font-display text-[44px] font-light leading-none text-frost-dim/15"
             style={
               horizontal
-                ? { left: pos, top: "calc(50% - 22px)", transform: "translate(-50%, -50%)" }
-                : { top: pos, left: "calc(50% + 22px)", transform: "translate(0, -50%)" }
+                ? { left: pos, top: "calc(50% - 64px)", transform: "translate(-50%, -50%)" }
+                : { top: pos, left: "calc(50% + 56px)", transform: "translate(0, -50%)" }
             }
           >
             {year}
@@ -67,9 +69,11 @@ export function YearGrid({ view }: { view: TimelineView }) {
 
       {ticks.map(({ year, major }) => {
         const pos = view.posOf(year);
-        const style = horizontal
+        // Vertical container spans the full width so the major rule and the
+        // gutter label can be placed in absolute screen-x coordinates.
+        const style: React.CSSProperties = horizontal
           ? { left: pos }
-          : { top: pos };
+          : { top: pos, left: 0, right: 0 };
         return (
           <div key={year} className="absolute" style={style}>
             {major ? (
@@ -97,7 +101,7 @@ export function YearGrid({ view }: { view: TimelineView }) {
               <div
                 className="absolute bg-gold/30"
                 style={{
-                  left: horizontal ? 0 : "50%",
+                  left: horizontal ? 0 : RAIL_X,
                   top: horizontal ? "50%" : 0,
                   width: horizontal ? 1 : 7,
                   height: horizontal ? 7 : 1,
@@ -109,11 +113,11 @@ export function YearGrid({ view }: { view: TimelineView }) {
             {major && (
               <span
                 className={[
-                  "absolute whitespace-nowrap font-mono text-[10px] tracking-widest text-frost-dim/80",
-                  horizontal
-                    ? "bottom-3 -translate-x-1/2"
-                    : "right-3 -translate-y-1/2",
+                  "absolute whitespace-nowrap font-sans tabular-nums tracking-wide text-frost-dim/80",
+                  horizontal ? "bottom-3 -translate-x-1/2 text-[11px]" : "text-[10px]",
                 ].join(" ")}
+                // Vertical: right-align in the gutter, just left of the rail.
+                style={horizontal ? undefined : { left: RAIL_X - 8, transform: "translate(-100%, -50%)" }}
               >
                 {year}
               </span>
